@@ -31,24 +31,52 @@ RECIPES_DB = [
         "ingredients": ["ceci", "zucchine", "limone", "olio"],
         "minutes": 15,
         "tags": ["vegetariano", "vegano", "senza-glutine"],
+        "servings": 2,
+        "quantities": {
+            "ceci": (200, "g"),
+            "zucchine": (400, "g"),
+            "limone": (100, "g"),
+            "olio": (45, "ml"),
+        },
     },
     {
         "name": "Riso allo yogurt e zucchine",
         "ingredients": ["riso", "zucchine", "yogurt-greco", "olio"],
         "minutes": 25,
         "tags": ["vegetariano", "senza-glutine"],
+        "servings": 2,
+        "quantities": {
+            "riso": (160, "g"),
+            "zucchine": (400, "g"),
+            "yogurt-greco": (200, "g"),
+            "olio": (1, "ml"),
+        },
     },
     {
         "name": "Pasta al pesto di rucola",
         "ingredients": ["pasta", "rucola", "parmigiano", "noci"],
         "minutes": 20,
         "tags": ["vegetariano", "contiene-frutta-secca"],
+        "servings": 2,
+        "quantities": {
+            "pasta": (200, "g"),
+            "rucola": (80, "g"),
+            "parmigiano": (30, "g"),
+            "noci": (30, "g"),
+        },
     },
     {
         "name": "Hummus express",
         "ingredients": ["ceci", "limone", "tahini", "aglio"],
         "minutes": 10,
         "tags": ["vegetariano", "vegano", "senza-glutine"],
+        "servings": 4,
+        "quantities": {
+            "ceci": (240, "g"),
+            "limone": (25, "ml"),
+            "tahini": (30, "g"),
+            "aglio": (5, "g"),
+        },
     },
 ]
 
@@ -79,7 +107,9 @@ def find_recipes_by_constraints(
     Returns:
         Lista di ricette compatibili.
     """
-    available_set = set(i.lower() for i in available_ingredients if i not in excluded_ingredients)
+    available_set = set(
+        i.lower() for i in available_ingredients if i not in excluded_ingredients
+    )
     constraints_set = set(c.lower() for c in dietary_constraints)
 
     results = []
@@ -113,6 +143,33 @@ def save_shopping_list(items: list[str]) -> str:
     SHOPPING_LIST_FILE.parent.mkdir(parents=True, exist_ok=True)
     SHOPPING_LIST_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2))
     return f"Lista della spesa salvata con {len(items)} ingredienti in {SHOPPING_LIST_FILE}."
+
+
+@tool
+def scale_recipe(recipe_name: str, target_servings: int) -> dict:
+    """Riscala gli ingredienti di una ricetta in base al numero di persone previste.
+    Ritorna {} in caso di errore.
+
+    Args:
+        recipe_name (str): nome della ricetta
+        target_servings (int): numero di persone target
+    """
+    if target_servings <= 0:
+        return {}
+    for recipe in RECIPES_DB:
+        if recipe["name"].lower() == recipe_name.lower():
+            quantities = recipe["quantities"]
+            servings = recipe["servings"]
+            return dict(
+                zip(
+                    quantities.keys(),
+                    (
+                        (quantity[0] / servings * target_servings, quantity[1])
+                        for quantity in quantities.values()
+                    ),
+                )
+            )
+    return {}
 
 
 # endregion
@@ -178,6 +235,7 @@ recipebot = Agent(
         "Usa find_recipes_by_constraints per cercare ricette compatibili",
         "In find_recipes_by_constraints le allergie vanno passate come excluded_ingredients, non come dietary_constraints.",
         "Usa save_shopping_list quando l'utente chiede di salvare gli ingredienti mancanti.",
+        "Usa scale_recipe() per riscalare gli ingredienti di una ricetta in base al numero di persone previste",
         "Restituisci sempre una raccomandazione strutturata secondo lo schema RecipeRecommendation.",
         "Consulta la knowledge base per: tecniche di cottura, allergeni, sostituzioni di ingredienti.",
         "Quando l'utente menziona allergie, preferenze o caratteristiche personali, salva queste informazioni nei tool di learning per ricordarle nelle conversazioni future.",
@@ -186,6 +244,7 @@ recipebot = Agent(
         ReasoningTools(add_instructions=True),
         find_recipes_by_constraints,
         save_shopping_list,
+        scale_recipe,
     ],
     knowledge=knowledge,
     search_knowledge=True,
