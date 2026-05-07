@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 
-# Carica le variabili da .env (in particolare GOOGLE_API_KEY).
+# Carica le variabili da .env (in particolare GOOGLE_API_KEY, MISTRAL_API_KEY ecc...).
 # Importante: deve avvenire PRIMA degli import di Agno.
 load_dotenv()
 
@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 import json
 from pathlib import Path
 from agno.agent import Agent
-from agno.models.google import Gemini
+
+# from agno.models.google import Gemini
+from agno.models.mistral import MistralChat
 from agno.db.sqlite import SqliteDb
 from agno.os import AgentOS
 from agno.tools import tool
@@ -214,6 +216,8 @@ knowledge = Knowledge(
 # Inserimento idempotente: se i file non sono cambiati, è veloce.
 knowledge.insert(path="docs/ricettario.md")
 knowledge.insert(path="docs/allergeni.md")
+knowledge.insert(path="docs/sostituzioni_avanzate.md")
+knowledge.insert(path="docs/tecniche_di_cottura.md")
 
 # endregion
 
@@ -222,7 +226,8 @@ db = SqliteDb(db_file="tmp/recipebot.db")
 recipebot = Agent(
     name="RecipeBot",
     description="Assistente di cucina che propone ricette e gestisce la lista della spesa.",
-    model=Gemini(id="gemini-2.5-flash"),
+    # model=Gemini(id="gemini-2.5-flash"),
+    model=MistralChat(id="mistral-small-latest"),
     db=db,
     instructions=[
         "Sei RecipeBot, un assistente di cucina.",
@@ -237,8 +242,10 @@ recipebot = Agent(
         "Usa save_shopping_list quando l'utente chiede di salvare gli ingredienti mancanti.",
         "Usa scale_recipe() per riscalare gli ingredienti di una ricetta in base al numero di persone previste",
         "Restituisci sempre una raccomandazione strutturata secondo lo schema RecipeRecommendation.",
-        "Consulta la knowledge base per: tecniche di cottura, allergeni, sostituzioni di ingredienti.",
+        "Consulta la knowledge base per: tecniche di cottura, allergeni, sostituzioni di ingredienti, sostituzioni di ingredienti con varianti vegane.",
+        "Consulta la knowledge base per richieste che riguardano le tecniche di cottura senza olio.",
         "Quando l'utente menziona allergie, preferenze o caratteristiche personali, salva queste informazioni nei tool di learning per ricordarle nelle conversazioni future.",
+        "Rispondi sempre in modo conciso.",
     ],
     tools=[
         ReasoningTools(add_instructions=True),
