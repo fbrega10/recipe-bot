@@ -11,6 +11,8 @@ from agno.agent import Agent
 
 # from agno.models.google import Gemini
 from agno.models.mistral import MistralChat
+from agno.models.google import Gemini
+from agno.models.groq import Groq
 from agno.db.sqlite import SqliteDb
 from agno.os import AgentOS
 from agno.tools import tool
@@ -188,6 +190,9 @@ class RecipeRecommendation(BaseModel):
         default_factory=list,
         description="Ingredienti che l'utente deve comprare per fare questa ricetta.",
     )
+    quantitaties: dict = Field(
+        description="Quantità degli ingredienti scalate per il numero di persone"
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description=(
@@ -202,7 +207,7 @@ class RecipeRecommendation(BaseModel):
 
 # endregion
 
-# Knowledge Base
+# region Knowledge Base
 
 knowledge = Knowledge(
     vector_db=LanceDb(
@@ -212,6 +217,7 @@ knowledge = Knowledge(
         embedder=GeminiEmbedder(),
     ),
 )
+# endregion
 
 # Inserimento idempotente: se i file non sono cambiati, è veloce.
 knowledge.insert(path="docs/ricettario.md")
@@ -226,8 +232,9 @@ db = SqliteDb(db_file="tmp/recipebot.db")
 recipebot = Agent(
     name="RecipeBot",
     description="Assistente di cucina che propone ricette e gestisce la lista della spesa.",
-    # model=Gemini(id="gemini-2.5-flash"),
-    model=MistralChat(id="mistral-small-latest"),
+    model=Gemini(id="gemini-2.5-flash"),
+    # model=MistralChat(id="mistral-small-latest"),
+    #model=Groq(id="llama-3.3-70b-versatile"),
     db=db,
     instructions=[
         "Sei RecipeBot, un assistente di cucina.",
@@ -248,15 +255,15 @@ recipebot = Agent(
         "Rispondi sempre in modo conciso.",
     ],
     tools=[
-        ReasoningTools(add_instructions=True),
+        ReasoningTools(add_instructions=True, enable_analyze=False),
         find_recipes_by_constraints,
         save_shopping_list,
         scale_recipe,
     ],
     knowledge=knowledge,
     search_knowledge=True,
-    # output_schema=RecipeRecommendation,
-    # use_json_mode=True,
+    output_schema=RecipeRecommendation,
+    use_json_mode=True,
     learning=LearningMachine(
         user_profile=UserProfileConfig(mode=LearningMode.AGENTIC),
         user_memory=UserMemoryConfig(mode=LearningMode.AGENTIC),
